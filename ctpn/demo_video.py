@@ -25,9 +25,9 @@ def resize_im(im, scale, max_scale=None):
     return cv2.resize(im, None, None, fx=f, fy=f, interpolation=cv2.INTER_LINEAR), f
 
 
-def draw_boxes(img, image_name, boxes, scale):
-    base_name = image_name.split('/')[-1]
-    with open('data/results/' + 'res_{}.txt'.format(base_name.split('.')[0]), 'w') as f:
+def draw_boxes(img, video_name, frameNum, boxes, scale):
+    base_name = video_name.split('/')[-1]
+    with open('data/results/' + 'res_{0}_{1}.txt'.format(base_name.split('.')[0], frameNum), 'w') as f:
         for box in boxes:
             if np.linalg.norm(box[0] - box[1]) < 5 or np.linalg.norm(box[3] - box[0]) < 5:
                 continue
@@ -49,21 +49,21 @@ def draw_boxes(img, image_name, boxes, scale):
             f.write(line)
 
     img = cv2.resize(img, None, None, fx=1.0 / scale, fy=1.0 / scale, interpolation=cv2.INTER_LINEAR)
-    cv2.imwrite(os.path.join("data/results", base_name), img)
+    cv2.imwrite(os.path.join("data/results", "{0}_{1}.jpg".format(base_name.split('.')[0], frameNum)), img)
 
 
 ###
 # 切割出含有文字的图片区域
 ###
-def cropped_pic(img, im_name):
-    base_name = im_name.split('/')[-1]
-    file = open('data/results/' + 'res_{}.txt'.format(base_name.split('.')[0]), 'r')
+def cropped_pic(img, video_name, frameNum):
+    base_name = video_name.split('/')[-1]
+    file = open('data/results/' + 'res_{0}_{1}.txt'.format(base_name.split('.')[0], frameNum), 'r')
     file_name = base_name.split('.')[0]
     i = 0
     for line in file:
         point = line.split(',')
         cropped = img[int(point[1]):int(point[3]), int(point[0]):int(point[2])]
-        cv2.imwrite(os.path.join("data/results", file_name + '_' + str(i) + '.jpg'), cropped)
+        cv2.imwrite(os.path.join("data/results", "{0}_{1}_{2}.jpg".format(file_name, frameNum, str(i))), cropped)
         i = i + 1
 
 
@@ -89,28 +89,34 @@ if __name__ == '__main__':
     output_cls_prob = sess.graph.get_tensor_by_name('Reshape_2:0')
     output_box_pred = sess.graph.get_tensor_by_name('rpn_bbox_pred/Reshape_1:0')
 
-    im_names = glob.glob(os.path.join(cfg.DATA_DIR, 'zimu', '*.png')) + \
-               glob.glob(os.path.join(cfg.DATA_DIR, 'zimu', '*.jpeg')) + \
-               glob.glob(os.path.join(cfg.DATA_DIR, 'zimu', '*.jpg'))
+    vd_names = glob.glob(os.path.join(cfg.DATA_DIR, 'video', '*.mp4')) + \
+               glob.glob(os.path.join(cfg.DATA_DIR, 'video', '*.flv')) + \
+               glob.glob(os.path.join(cfg.DATA_DIR, 'video', '*.avi'))
 
-    for im_name in im_names:
-        print('~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~')
-        print(('Demo for {:s}'.format(im_name)))
-        img = cv2.imread(im_name)
-        tmp = img
-        img, scale = resize_im(img, scale=TextLineCfg.SCALE, max_scale=TextLineCfg.MAX_SCALE)
-        blobs, im_scales = _get_blobs(img, None)
-        if cfg.TEST.HAS_RPN:
-            im_blob = blobs['data']
-            blobs['im_info'] = np.array(
-                [[im_blob.shape[1], im_blob.shape[2], im_scales[0]]],
-                dtype=np.float32)
-        cls_prob, box_pred = sess.run([output_cls_prob, output_box_pred], feed_dict={input_img: blobs['data']})
-        rois, _ = proposal_layer(cls_prob, box_pred, blobs['im_info'], 'TEST', anchor_scales=cfg.ANCHOR_SCALES)
+    for vd_name in vd_names:
+        videoCapture = cv2.VideoCapture(vd_name)
+        success, frame = videoCapture.read()
+        frameNum = 1
+        while (success):
+            frameNum = frameNum+1
+            # cv2.imshow('', frame)
+            # cv2.waitKey(0)
+            # cv2.destroyAllWindows()
+            tmp = frame
+            img, scale = resize_im(frame, scale=TextLineCfg.SCALE, max_scale=TextLineCfg.MAX_SCALE)
+            blobs, im_scales = _get_blobs(img, None)
+            if cfg.TEST.HAS_RPN:
+                im_blob = blobs['data']
+                blobs['im_info'] = np.array(
+                    [[im_blob.shape[1], im_blob.shape[2], im_scales[0]]],
+                    dtype=np.float32)
+            cls_prob, box_pred = sess.run([output_cls_prob, output_box_pred], feed_dict={input_img: blobs['data']})
+            rois, _ = proposal_layer(cls_prob, box_pred, blobs['im_info'], 'TEST', anchor_scales=cfg.ANCHOR_SCALES)
 
-        scores = rois[:, 0]
-        boxes = rois[:, 1:5] / im_scales[0]
-        textdetector = TextDetector()
-        boxes = textdetector.detect(boxes, scores[:, np.newaxis], img.shape[:2])
-        draw_boxes(img, im_name, boxes, scale)
-        cropped_pic(tmp, im_name)
+            scores = rois[:, 0]
+            boxes = rois[:, 1:5] / im_scales[0]
+            textdetector = TextDetector()
+            boxes = textdetector.detect(boxes, scores[:, np.newaxis], img.shape[:2])
+            draw_boxes(img, vd_name, frameNum, boxes, scale)
+            cropped_pic(tmp, vd_name, frameNum)     ### TODO 用文件夹保存，加框后图片拼接成视频
+            success, frame = videoCapture.read()
