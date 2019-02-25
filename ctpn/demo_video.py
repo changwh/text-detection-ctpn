@@ -50,6 +50,7 @@ def draw_boxes(img, video_name, frameNum, boxes, scale):
 
     img = cv2.resize(img, None, None, fx=1.0 / scale, fy=1.0 / scale, interpolation=cv2.INTER_LINEAR)
     cv2.imwrite(os.path.join("data/results", "{0}_{1}.jpg".format(base_name.split('.')[0], frameNum)), img)
+    return img
 
 
 ###
@@ -57,13 +58,20 @@ def draw_boxes(img, video_name, frameNum, boxes, scale):
 ###
 def cropped_pic(img, video_name, frameNum):
     base_name = video_name.split('/')[-1]
+
+    # 对每一帧分别创建一个文件夹存放截取出的字幕
+    if os.path.exists("data/results/cropped_pic_{0}_{1}".format(base_name.split('.')[0], frameNum)):
+        shutil.rmtree("data/results/cropped_pic_{0}_{1}".format(base_name.split('.')[0], frameNum))
+    os.makedirs("data/results/cropped_pic_{0}_{1}".format(base_name.split('.')[0], frameNum))
+
     file = open('data/results/' + 'res_{0}_{1}.txt'.format(base_name.split('.')[0], frameNum), 'r')
     file_name = base_name.split('.')[0]
     i = 0
     for line in file:
         point = line.split(',')
         cropped = img[int(point[1]):int(point[3]), int(point[0]):int(point[2])]
-        cv2.imwrite(os.path.join("data/results", "{0}_{1}_{2}.jpg".format(file_name, frameNum, str(i))), cropped)
+        cv2.imwrite(os.path.join("data/results/cropped_pic_{0}_{1}".format(base_name.split('.')[0], frameNum),
+                                 "{0}_{1}_{2}.jpg".format(file_name, frameNum, str(i))), cropped)
         i = i + 1
 
 
@@ -96,9 +104,17 @@ if __name__ == '__main__':
     for vd_name in vd_names:
         videoCapture = cv2.VideoCapture(vd_name)
         success, frame = videoCapture.read()
-        frameNum = 1
+        frameNum = 0
+
+        # 创建视频容器
+        videoWriter = cv2.VideoWriter("data/results/{}_drawnBoxes.mp4".format(vd_name.split('/')[-1].split('.')[0]),
+                                      cv2.VideoWriter_fourcc('M', 'J', 'P', 'G'),
+                                      videoCapture.get(cv2.CAP_PROP_FPS),
+                                      (int(videoCapture.get(cv2.CAP_PROP_FRAME_WIDTH)),
+                                       int(videoCapture.get(cv2.CAP_PROP_FRAME_HEIGHT))))
+
         while (success):
-            frameNum = frameNum+1
+            frameNum = frameNum + 1
             # cv2.imshow('', frame)
             # cv2.waitKey(0)
             # cv2.destroyAllWindows()
@@ -117,6 +133,10 @@ if __name__ == '__main__':
             boxes = rois[:, 1:5] / im_scales[0]
             textdetector = TextDetector()
             boxes = textdetector.detect(boxes, scores[:, np.newaxis], img.shape[:2])
-            draw_boxes(img, vd_name, frameNum, boxes, scale)
-            cropped_pic(tmp, vd_name, frameNum)     ### TODO 用文件夹保存，加框后图片拼接成视频
+            drawn = draw_boxes(img, vd_name, frameNum, boxes, scale)
+
+            # 将加框后图片拼接成视频
+            videoWriter.write(drawn)
+
+            cropped_pic(tmp, vd_name, frameNum)
             success, frame = videoCapture.read()
