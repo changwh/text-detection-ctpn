@@ -132,7 +132,7 @@ if __name__ == '__main__':
             scores = rois[:, 0]
             boxes = rois[:, 1:5] / im_scales[0]
             textdetector = TextDetector()
-            boxes = textdetector.detect(boxes, scores[:, np.newaxis], img.shape[:2])
+            boxes = textdetector.detect(boxes, scores[:, np.newaxis], img.shape[:2])  ###TODO：可选择感兴趣区域
             drawn = draw_boxes(img, vd_name, frameNum, boxes, scale)
 
             # 将加框后图片拼接成视频
