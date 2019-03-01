@@ -6,6 +6,8 @@ class TextProposalConnector:
     """
         Connect text proposals into text lines
     """
+
+    ### 框应该是小框拓展并且拼接成大框?
     def __init__(self):
         self.graph_builder=TextProposalGraphBuilder()
 
