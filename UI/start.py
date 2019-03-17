@@ -8,7 +8,6 @@ import UI
 class Detector():
 
     def detect(self):
-        # 处理你要做的业务逻辑，这里是通过一个回调来处理数据，这里的逻辑处理写自己的方法
         ui.textBrowser.append("running")
         i = 1
         while i <= 100:
@@ -40,9 +39,7 @@ class MainWindow(QMainWindow, UI.Ui_MainWindow):
 
     # call Detector
     def start_detect(self):
-        # 创建线程
         self.detector = Detector()
-        # 开始线程
         self.detector.detect()
 
     # QGraphicsScene update
@@ -69,7 +66,6 @@ class MainWindow(QMainWindow, UI.Ui_MainWindow):
             self.timer.stop()
             self.frameNum = 0
 
-
     # start button
     @pyqtSlot()
     def on_pushButtonStart_clicked(self):
@@ -80,10 +76,8 @@ class MainWindow(QMainWindow, UI.Ui_MainWindow):
 
         ###todo:stdout重定向到textBrowser   优先级低
 
-        ###todo:异步控制(参照视频:加载主界面部分)  优先级:高
         self.start_detect()
         self.start_stop_func()
-
 
     # select input file(s)
     @pyqtSlot()
@@ -115,7 +109,6 @@ class MainWindow(QMainWindow, UI.Ui_MainWindow):
                                                                  '/')
         print(output_path)
         self.lineEditOutputPath.setText(output_path)
-
 
 
 if __name__ == "__main__":
