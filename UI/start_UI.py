@@ -4,18 +4,21 @@ from PyQt5.QtWidgets import QMainWindow
 import sys, time
 import UI
 
+from ctpn.demo_video_interface import CharacterDetector
 
-class Detector():
 
-    def detect(self):
-        ui.textBrowser.append("running")
-        i = 1
-        while i <= 100:
-            ui.progressBar.setValue(i)
-            time.sleep(0.1)
-            i = i + 1
+# todo:1.运行的进度用进度条显示
+# todo:2.输出重定向到textBrowser
+# todo:3.输入输出路径的检查
+# todo:4.对同时输入多个文件的支持
 
-        ui.textBrowser.append("finished")
+
+# 刷新进度条
+# i = 1
+# while i <= 100:
+#     ui.progressBar.setValue(i)
+#     time.sleep(0.1)
+#     i = i + 1
 
 
 class MainWindow(QMainWindow, UI.Ui_MainWindow):
@@ -35,23 +38,33 @@ class MainWindow(QMainWindow, UI.Ui_MainWindow):
         self.timer.timeout.connect(self.update_func)
         self.scene = QtWidgets.QGraphicsScene()
         self.frameNum = 0
+        self.video_fps = 0
+        self.video_frame_count = 0
         self.setupUi(self)
 
     # call Detector
     def start_detect(self):
-        self.detector = Detector()
-        self.detector.detect()
+        self.textBrowser.append("running")
+
+        cd = CharacterDetector()
+        self.video_fps = cd.get_video_fps(self.input_path[0][0])
+        self.video_frame_count = cd.get_video_frame_count(self.input_path[0][0])
+        cd.start_detect(self.input_path[0], self.output_path)
+
+        self.textBrowser.append("finished")
 
     # QGraphicsScene update
     def update_func(self):
         self.frameNum += 1
 
-        image = QtGui.QPixmap('../ctpn/data/results/77374694-1-64_{}.jpg'.format(self.frameNum))  # output path
-        copy = image.scaledToHeight(400)  # height of graphicsView
+        image = QtGui.QPixmap('{}/{}_{}.jpg'.format(self.output_path,  # output path
+                                                    self.input_path[0][0].split('/')[-1].split('.')[0],
+                                                    self.frameNum))
+        copy = image.scaledToHeight(390)  # height of graphicsView
         self.scene.addPixmap(copy)
         ui.graphicsView.setScene(self.scene)
 
-        if self.frameNum >= 308:  # 视频总帧数
+        if self.frameNum >= int(self.video_frame_count):  # 视频总帧数
             self.pushButtonStart.setText('Start')
             self.timer.stop()
             self.frameNum = 0
@@ -59,7 +72,7 @@ class MainWindow(QMainWindow, UI.Ui_MainWindow):
     def start_stop_func(self):
         if self.pushButtonStart.text() == 'Start':
             self.pushButtonStart.setText('Stop')
-            self.timer.start(40)
+            self.timer.start(int(1000 / int(self.video_fps)))
 
         else:
             self.pushButtonStart.setText('Start')
@@ -74,8 +87,6 @@ class MainWindow(QMainWindow, UI.Ui_MainWindow):
         """
         self.textBrowser.append(self.lineEditOutputPath.text())
 
-        ###todo:stdout重定向到textBrowser   优先级低
-
         self.start_detect()
         self.start_stop_func()
 
@@ -85,17 +96,17 @@ class MainWindow(QMainWindow, UI.Ui_MainWindow):
         """
         Slot documentation goes here.
         """
-        input_path = QtWidgets.QFileDialog.getOpenFileNames(self,
+        self.input_path = QtWidgets.QFileDialog.getOpenFileNames(self,
                                                             "Open file(s)",
                                                             '/',
                                                             'Video files(*.avi *.flv *.mp4);;'
                                                             'Image files(*.jpg *.jpeg *.png);;'
                                                             'All files(*.*)')
-        print(input_path)
-        if (len(input_path[0]) == 1):
-            self.lineEditInputPath.setText(input_path[0][0])
-        elif (len(input_path[0]) > 1):
-            for path in input_path[0]:
+        # print(self.input_path)
+        if (len(self.input_path[0]) == 1):
+            self.lineEditInputPath.setText(self.input_path[0][0])
+        elif (len(self.input_path[0]) > 1):
+            for path in self.input_path[0]:
                 self.lineEditInputPath.insert(path + ";")
 
     # select output folder
@@ -104,11 +115,11 @@ class MainWindow(QMainWindow, UI.Ui_MainWindow):
         """
         Slot documentation goes here.
         """
-        output_path = QtWidgets.QFileDialog.getExistingDirectory(self,
+        self.output_path = QtWidgets.QFileDialog.getExistingDirectory(self,
                                                                  "Select output folder",
                                                                  '/')
-        print(output_path)
-        self.lineEditOutputPath.setText(output_path)
+        # print(self.output_path)
+        self.lineEditOutputPath.setText(self.output_path)
 
 
 if __name__ == "__main__":
